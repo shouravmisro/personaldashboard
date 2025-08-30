@@ -1,0 +1,216 @@
+{% extends 'base.html' %}
+
+{% block title %}Habits | Personal Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-md-7 mb-4">
+    <h1>Habits</h1>
+    <div id="habitsList" class="d-flex flex-column gap-4"></div>
+  </div>
+  <div class="col-md-5 mb-4">
+    <h2>Add New Habit</h2>
+    <form id="addHabitForm">
+      <div class="mb-3">
+        <label for="habit_name" class="form-label">Habit Name <span class="text-danger">*</span></label>
+        <input type="text" id="habit_name" class="form-control" required />
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Frequency</label>
+        <select id="frequency" class="form-select">
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label for="goal_label" id="goal_label" class="form-label">Times per day</label>
+        <input type="number" id="goal" class="form-control" min="1" value="1"/>
+      </div>
+      <div class="mb-3">
+        <label for="notes" class="form-label">Notes</label>
+        <textarea id="notes" class="form-control" rows="3"></textarea>
+      </div>
+      <button type="submit" class="btn btn-success w-100">Add Habit</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const habitsList = document.getElementById('habitsList');
+const addHabitForm = document.getElementById('addHabitForm');
+const freqSelect = document.getElementById('frequency');
+const goalLabel = document.getElementById('goal_label');
+
+freqSelect.addEventListener('change', function() {
+  const freq = freqSelect.value;
+  if (freq === 'daily') goalLabel.textContent = 'Times per day';
+  else if (freq === 'weekly') goalLabel.textContent = 'Times per week';
+  else if (freq === 'monthly') goalLabel.textContent = 'Times per month';
+  else goalLabel.textContent = 'Goal';
+});
+
+function renderContributionGraph(progress, goal, freq) {
+  const container = document.createElement('div');
+  container.style.display = 'grid';
+  container.style.gridTemplateColumns = 'repeat(7, 22px)';
+  container.style.gridGap = '6px';
+  const dates = Object.keys(progress).sort();
+  dates.forEach((dateStr, idx) => {
+    const count = progress[dateStr];
+    const box = document.createElement('div');
+    box.style.width = '22px';
+    box.style.height = '22px';
+    box.style.borderRadius = '8px';
+    box.style.transition = 'background 0.2s';
+    let color = '#ebedf0'; // light
+    if (count >= goal) color = '#229953'; // dark green
+    else if (count > 0) color = '#77cbaa'; // medium green
+    box.style.backgroundColor = color;
+    box.title = `${dateStr}: ${count}/${goal}`;
+    container.appendChild(box);
+  });
+  return container;
+}
+
+function renderHabit(habit) {
+  const card = document.createElement('div');
+  card.className = 'card bg-dark text-light p-3 rounded shadow-sm';
+
+  const header = document.createElement('div');
+  header.className = 'd-flex justify-content-between align-items-center mb-2';
+  const title = document.createElement('h5');
+  title.textContent = habit.habit_name;
+  const freq = document.createElement('span');
+  freq.className = 'badge bg-info ms-4';
+  freq.textContent = habit.frequency || 'daily';
+  header.appendChild(title);
+  header.appendChild(freq);
+  card.appendChild(header);
+
+  const stats = document.createElement('p');
+  stats.textContent = `Goal: ${habit.goal}`;
+  card.appendChild(stats);
+
+  if(habit.notes){
+    const notes = document.createElement('p');
+    notes.className = 'small text-muted';
+    notes.textContent = habit.notes;
+    card.appendChild(notes);
+  }
+
+  // Load and render progress + daily check
+  fetch(`/api/habits/${habit.id}/progress`)
+    .then(res => res.json())
+    .then(data => {
+      // Show daily grid
+      const graphContainer = renderContributionGraph(data.progress, data.goal, data.frequency);
+      card.appendChild(graphContainer);
+
+      // -- DAILY CHECK UI --
+      const todayKey = Object.keys(data.progress).sort().slice(-1)[0];
+      const todayCount = data.progress[todayKey];
+      const checkContainer = document.createElement('div');
+      checkContainer.className = "mt-3";
+      const label = document.createElement('span');
+      label.textContent = `Today's progress:`;
+      checkContainer.appendChild(label);
+
+      const checkBtn = document.createElement('button');
+      checkBtn.className = 'btn btn-outline-success ms-3';
+      checkBtn.textContent = todayCount >= data.goal ? "✔ Completed" : "Mark as done";
+      checkBtn.onclick = () => {
+        fetch(`/api/habits/${habit.id}/progress`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({date: todayKey, count: data.goal})
+        })
+        .then(() => {
+          checkBtn.textContent = "✔ Completed";
+          graphContainer.children[graphContainer.children.length-1].style.backgroundColor = '#229953';
+        });
+      };
+      checkContainer.appendChild(checkBtn);
+      card.appendChild(checkContainer);
+    });
+
+  // Buttons
+  const btnGroup = document.createElement('div');
+  btnGroup.className = 'd-flex gap-2 mt-3';
+  const editBtn = document.createElement('button');
+  editBtn.className = 'btn btn-primary btn-sm';
+  editBtn.textContent = 'Edit';
+  editBtn.onclick = () => editHabit(habit);
+  const delBtn = document.createElement('button');
+  delBtn.className = 'btn btn-danger btn-sm';
+  delBtn.textContent = 'Delete';
+  delBtn.onclick = () => deleteHabit(habit.id);
+  btnGroup.appendChild(editBtn);
+  btnGroup.appendChild(delBtn);
+  card.appendChild(btnGroup);
+
+  return card;
+}
+
+function loadHabits() {
+  fetch('/api/habits')
+    .then(res => res.json())
+    .then(habits => {
+      habitsList.innerHTML = '';
+      habits.forEach(habit => habitsList.appendChild(renderHabit(habit)));
+    });
+}
+
+addHabitForm.addEventListener('submit', e => {
+  e.preventDefault();
+  const data = {
+    habit_name: document.getElementById('habit_name').value,
+    frequency: document.getElementById('frequency').value,
+    goal: parseInt(document.getElementById('goal').value),
+    notes: document.getElementById('notes').value
+  };
+  fetch('/api/habits', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(data)
+  })
+  .then(async res => {
+    const d = await res.json();
+    if(!res.ok) throw new Error(d.error || "Failed to add");
+    addHabitForm.reset();
+    loadHabits();
+  });
+});
+
+function deleteHabit(id) {
+  if(!confirm('Delete this habit?')) return;
+  fetch(`/api/habits/${id}`, {method:'DELETE'})
+    .then(async res => {
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || "Failed to delete");
+      loadHabits();
+    });
+}
+
+function editHabit(habit){
+  const name = prompt('Habit name:', habit.habit_name);
+  if(name===null) return;
+  const freq = prompt('Frequency (daily/weekly/monthly):', habit.frequency || 'daily');
+  const goal = prompt('Goal:', habit.goal);
+  const notes = prompt('Notes:', habit.notes || '');
+  fetch(`/api/habits/${habit.id}`,{
+    method:'PUT',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({habit_name: name, frequency: freq, goal:parseInt(goal), notes})
+  }).then(async res=>{
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || "Failed to update");
+    loadHabits();
+  });
+}
+
+window.onload = loadHabits;
+</script>
+{% endblock %}

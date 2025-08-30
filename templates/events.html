@@ -1,0 +1,333 @@
+{% extends 'base.html' %}
+
+{% block title %}Events | Personal Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+  <!-- Events List (left column) -->
+  <div class="col-md-7 mb-4">
+    <h1>Events</h1>
+    <div id="eventsList"></div>
+  </div>
+  <!-- Add Event (right column) -->
+  <div class="col-md-5 mb-4">
+    <h2>Add New Event</h2>
+    <form id="addEventForm">
+      <div class="mb-3">
+        <label for="title" class="form-label">Event Title <span class="text-danger">*</span></label>
+        <input type="text" id="title" class="form-control" required />
+      </div>
+      <div class="mb-3">
+        <label for="description" class="form-label">Description</label>
+        <textarea id="description" class="form-control"></textarea>
+      </div>
+      <div class="mb-3">
+        <label for="event_date" class="form-label">Date & Time <span class="text-danger">*</span></label>
+        <input type="datetime-local" id="event_date" class="form-control" required />
+      </div>
+      <div class="mb-3">
+        <label for="image_url" class="form-label">Image URL (optional)</label>
+        <input type="url" id="image_url" class="form-control" />
+      </div>
+      <button type="submit" class="btn btn-success w-100">Add Event</button>
+    </form>
+  </div>
+</div>
+
+<!-- Fullscreen Countdown Overlay -->
+<div id="fullscreenCountdown" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:1050; background:#1b2330cc; color:#00ffc3; justify-content:center; align-items:center; flex-direction:column;">
+  <div id="fullscreenEventInfo" style="text-align:center; margin-bottom:2rem;"></div>
+  <svg id="countdownSvg" width="300" height="300" viewBox="0 0 120 120">
+    <circle cx="60" cy="60" r="54" stroke="#222e3c" stroke-width="12" fill="none"/>
+    <circle id="progressCircle" cx="60" cy="60" r="54" stroke="#00ffc3" stroke-width="10" fill="none"
+      stroke-linecap="round" stroke-dasharray="339.292" stroke-dashoffset="339.292" />
+  </svg>
+  <div id="countdownText" style="font-size:3rem; margin-top:20px; font-family:monospace;"></div>
+  <button id="closeFullscreenBtn" class="btn btn-outline-light mt-4">Close</button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const eventsList = document.getElementById('eventsList');
+  const addEventForm = document.getElementById('addEventForm');
+  const fullscreenDiv = document.getElementById('fullscreenCountdown');
+  const fullscreenEventInfo = document.getElementById('fullscreenEventInfo');
+  const countdownText = document.getElementById('countdownText');
+  const progressCircle = document.getElementById('progressCircle');
+  let fsTimer;
+  let fsEvent;
+
+  const CIRCUMFERENCE = 2 * Math.PI * 54;
+
+  function getCountdown(eventDateStr) {
+    const now = new Date();
+    const eventDate = new Date(eventDateStr);
+    const diff = eventDate - now;
+    if (diff <= 0) return null;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    const minutes = Math.floor((diff / (1000 * 60)) % 60);
+    const seconds = Math.floor((diff / 1000) % 60);
+    return {days, hours, minutes, seconds, totalMs: diff};
+  }
+
+  // Main card UI for events
+  function renderEvent(event) {
+    const card = document.createElement('div');
+    card.className = 'card bg-dark text-light mb-4 shadow-sm';
+    card.style.borderRadius = '1.5rem';
+
+    // Card body
+    const cardBody = document.createElement('div');
+    cardBody.className = 'card-body';
+
+    // Title Row
+    const titleRow = document.createElement('div');
+    titleRow.className = 'd-flex align-items-center mb-2';
+    const titleIcon = document.createElement('i');
+    titleIcon.className = 'bi bi-calendar-event-fill me-2 fs-4 text-primary';
+    titleRow.appendChild(titleIcon);
+    const title = document.createElement('h5');
+    title.textContent = event.title;
+    title.style.marginBottom = "0";
+    titleRow.appendChild(title);
+    cardBody.appendChild(titleRow);
+
+    // Image
+    if (event.image_url) {
+      const img = document.createElement('img');
+      img.src = event.image_url;
+      img.alt = event.title;
+      img.className = 'my-2 rounded shadow-sm';
+      img.style.maxWidth = '100%';
+      img.style.maxHeight = '120px';
+      cardBody.appendChild(img);
+    }
+
+    // Description
+    if (event.description) {
+      const descRow = document.createElement('div');
+      descRow.className = 'd-flex align-items-center mb-2';
+      const descIcon = document.createElement('i');
+      descIcon.className = 'bi bi-card-text me-2 fs-5 text-info';
+      descRow.appendChild(descIcon);
+      const descText = document.createElement('div');
+      descText.textContent = event.description;
+      descRow.appendChild(descText);
+      cardBody.appendChild(descRow);
+    }
+
+    // Date
+    const dateRow = document.createElement('div');
+    dateRow.className = 'd-flex align-items-center mb-2 small';
+    const dateIcon = document.createElement('i');
+    dateIcon.className = 'bi bi-clock me-2 text-secondary';
+    dateRow.appendChild(dateIcon);
+    const dateText = document.createElement('div');
+    dateText.textContent = `Date: ${new Date(event.event_date).toLocaleString()}`;
+    dateRow.appendChild(dateText);
+    cardBody.appendChild(dateRow);
+
+    // Countdown row with circular UI and Fullscreen button
+    const countdownRow = document.createElement('div');
+    countdownRow.className = 'd-flex align-items-center justify-content-between mt-3';
+
+    // SVG Circular Timer
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", "60");
+    svg.setAttribute("height", "60");
+    svg.setAttribute("viewBox", "0 0 60 60");
+
+    const baseCircle = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    baseCircle.setAttribute("cx","30");
+    baseCircle.setAttribute("cy","30");
+    baseCircle.setAttribute("r","26");
+    baseCircle.setAttribute("stroke","#333f4b");
+    baseCircle.setAttribute("stroke-width","6");
+    baseCircle.setAttribute("fill","none");
+    svg.appendChild(baseCircle);
+
+    const progress = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    progress.setAttribute("id","eventProgress");
+    progress.setAttribute("cx","30");
+    progress.setAttribute("cy","30");
+    progress.setAttribute("r","26");
+    progress.setAttribute("stroke","#00ffc3");
+    progress.setAttribute("stroke-width","5");
+    progress.setAttribute("fill","none");
+    progress.setAttribute("stroke-linecap","round");
+    progress.setAttribute("stroke-dasharray",2*Math.PI*26);
+    progress.setAttribute("stroke-dashoffset",2*Math.PI*26);
+    svg.appendChild(progress);
+
+    countdownRow.appendChild(svg);
+
+    // Countdown Text
+    const timerText = document.createElement('div');
+    timerText.className = 'ms-3 fs-5 fw-bold font-monospace text-warning';
+    countdownRow.appendChild(timerText);
+
+    // Fullscreen Button
+    const fsBtn = document.createElement('button');
+    fsBtn.className = 'btn btn-outline-info ms-3';
+    fsBtn.textContent = 'Fullscreen Countdown';
+    countdownRow.appendChild(fsBtn);
+
+    cardBody.appendChild(countdownRow);
+
+    // Edit/Delete Buttons
+    const btnGroup = document.createElement('div');
+    btnGroup.className = 'mt-4 d-flex gap-2';
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn btn-outline-primary btn-sm';
+    editBtn.textContent = 'Edit';
+    editBtn.onclick = () => editEvent(event);
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn btn-outline-danger btn-sm';
+    delBtn.textContent = 'Delete';
+    delBtn.onclick = () => deleteEvent(event.id);
+
+    btnGroup.appendChild(editBtn);
+    btnGroup.appendChild(delBtn);
+    cardBody.appendChild(btnGroup);
+
+    card.appendChild(cardBody);
+
+    // Countdown update animation for both mini and fullscreen circle
+    let timer;
+    function updateCountdownDisplay() {
+      const cd = getCountdown(event.event_date);
+      if (!cd) {
+        timerText.textContent = "Event passed";
+        progress.setAttribute("stroke-dashoffset", 0);
+        clearInterval(timer);
+        return;
+      }
+      timerText.textContent = `${cd.days}d ${cd.hours}h ${cd.minutes}m ${cd.seconds}s`;
+      // Animate seconds as circle
+      const secondsProgress = cd.seconds / 60;
+      progress.setAttribute('stroke-dashoffset',CIRCUMFERENCE * (1-secondsProgress));
+    }
+    updateCountdownDisplay();
+    timer = setInterval(updateCountdownDisplay, 1000);
+
+    // Fullscreen handler
+    fsBtn.addEventListener('click', () => {
+      fsEvent = event;
+      fullscreenDiv.style.display = 'flex';
+      fullscreenEventInfo.innerHTML = `
+        <h2 style="font-size:2.5rem;">${event.title}</h2>
+        ${event.image_url ? `<img src="${event.image_url}" style="max-width:160px;max-height:160px;border-radius:1rem;margin-bottom:1rem;">` : ''}
+        ${event.description ? `<p style="color:#ccc;margin-bottom:1.2rem;">${event.description}</p>` : ''}
+        <span style="font-size:1.25rem;color:#77a5c6;">${new Date(event.event_date).toLocaleString()}</span>
+      `;
+      function updateFSCountdown() {
+        const cd = getCountdown(event.event_date);
+        if (!cd) {
+          countdownText.textContent = "Event passed";
+          progressCircle.setAttribute("stroke-dashoffset", 0);
+          clearInterval(fsTimer);
+          return;
+        }
+        countdownText.textContent = `${cd.days}d ${cd.hours}h ${cd.minutes}m ${cd.seconds}s`;
+        const secondsProgress = cd.seconds / 60;
+        progressCircle.setAttribute('stroke-dashoffset', CIRCUMFERENCE * (1-secondsProgress));
+      }
+      updateFSCountdown();
+      fsTimer = setInterval(updateFSCountdown, 1000);
+    });
+
+    return card;
+  }
+
+  // Load all events and display
+  function loadEvents() {
+    fetch('/api/events')
+      .then(res => res.json())
+      .then(events => {
+        eventsList.innerHTML = '';
+        events.forEach(event => {
+          eventsList.appendChild(renderEvent(event));
+        });
+      })
+      .catch(err => alert('Error loading events: ' + err.message));
+  }
+
+  addEventForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const eventData = {
+      title: document.getElementById('title').value,
+      description: document.getElementById('description').value,
+      event_date: document.getElementById('event_date').value,
+      image_url: document.getElementById('image_url').value
+    };
+    fetch('/api/events', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(eventData)
+    })
+    .then(async res => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to add event');
+      addEventForm.reset();
+      loadEvents();
+    })
+    .catch(err => alert('Error adding event: ' + err.message));
+  });
+
+  function deleteEvent(id) {
+    if (!confirm('Delete this event?')) return;
+    fetch(`/api/events/${id}`, {method: 'DELETE'})
+      .then(async res => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to delete event');
+        loadEvents();
+      })
+      .catch(err => alert('Error deleting event: ' + err.message));
+  }
+
+  function editEvent(event) {
+    const newTitle = prompt('Update Title:', event.title);
+    if (newTitle === null) return;
+    const newDesc = prompt('Update Description:', event.description || '');
+    const newDate = prompt('Update Date (YYYY-MM-DDTHH:mm):', event.event_date.substring(0,16));
+    const newImage = prompt('Update Image URL:', event.image_url || '');
+
+    fetch(`/api/events/${event.id}`, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        title: newTitle,
+        description: newDesc,
+        event_date: newDate,
+        image_url: newImage
+      })
+    })
+    .then(async res => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update event');
+      loadEvents();
+    })
+    .catch(err => alert('Error updating event: ' + err.message));
+  }
+
+  document.getElementById('closeFullscreenBtn').onclick = function(){
+    fullscreenDiv.style.display = 'none';
+    clearInterval(fsTimer);
+  };
+  // ESC key closes overlay
+  document.addEventListener('keydown', e => {
+    if (fullscreenDiv.style.display === 'flex' && e.key === 'Escape') {
+      fullscreenDiv.style.display = 'none';
+      clearInterval(fsTimer);
+    }
+  });
+
+  window.onload = loadEvents;
+</script>
+<!-- Bootstrap Icons CDN for card icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" />
+{% endblock %}

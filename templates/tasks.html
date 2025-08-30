@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+
+{% block title %}Tasks | Personal Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-md-7 mb-4">
+    <h1>To-Do Tasks</h1>
+    <ul id="tasksList" class="list-group"></ul>
+  </div>
+
+  <div class="col-md-5 mb-4">
+    <h2>Add New Task</h2>
+    <form id="addTaskForm">
+      <div class="mb-3">
+        <label for="task_text" class="form-label">Task Description <span class="text-danger">*</span></label>
+        <input type="text" id="task_text" class="form-control" placeholder="Enter task description" required />
+      </div>
+      <div class="mb-3">
+        <label for="category" class="form-label">Category</label>
+        <input type="text" id="category" class="form-control" placeholder="e.g. Work, Personal" />
+      </div>
+      <div class="mb-3">
+        <label for="priority" class="form-label">Priority (1-5)</label>
+        <input type="number" id="priority" class="form-control" min="1" max="5" value="1" />
+      </div>
+      <div class="mb-3">
+        <label for="deadline" class="form-label">Deadline</label>
+        <input type="datetime-local" id="deadline" class="form-control" />
+      </div>
+      <div class="mb-3">
+        <label for="external_data" class="form-label">Optional Notes / External Data</label>
+        <textarea id="external_data" class="form-control" rows="4" placeholder="Additional info or links"></textarea>
+      </div>
+      <button type="submit" class="btn btn-success w-100">Add Task</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const tasksList = document.getElementById('tasksList');
+  const addTaskForm = document.getElementById('addTaskForm');
+
+  function createTaskItem(task) {
+    const li = document.createElement('li');
+    li.className = 'list-group-item bg-dark text-light mb-3 rounded';
+
+    // Header with completion checkbox and task text
+    const header = document.createElement('div');
+    header.className = 'd-flex justify-content-between align-items-center';
+
+    const leftDiv = document.createElement('div');
+    leftDiv.className = 'd-flex align-items-center';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = task.completed;
+    checkbox.className = 'form-check-input me-2';
+    checkbox.addEventListener('change', () => updateTask(task.id, { completed: checkbox.checked }));
+
+    let deadlineText = task.deadline ? ` (Due: ${new Date(task.deadline).toLocaleString()})` : '';
+    const taskTextSpan = document.createElement('span');
+    taskTextSpan.textContent = task.task_text + deadlineText;
+    taskTextSpan.style.cursor = 'pointer';
+
+    leftDiv.appendChild(checkbox);
+    leftDiv.appendChild(taskTextSpan);
+
+    // Show/hide button for notes
+    const toggleNotesBtn = document.createElement('button');
+    toggleNotesBtn.className = 'btn btn-sm btn-secondary me-2';
+    toggleNotesBtn.textContent = 'Details';
+    toggleNotesBtn.setAttribute('aria-expanded', 'false');
+    toggleNotesBtn.setAttribute('aria-controls', 'notes-' + task.id);
+
+    // Edit and delete buttons
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn btn-sm btn-outline-primary me-2';
+    editBtn.textContent = 'Edit';
+    editBtn.onclick = () => editTask(task);
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn btn-sm btn-outline-danger';
+    delBtn.textContent = 'Delete';
+    delBtn.onclick = () => deleteTask(task.id);
+
+    const rightDiv = document.createElement('div');
+    rightDiv.appendChild(toggleNotesBtn);
+    rightDiv.appendChild(editBtn);
+    rightDiv.appendChild(delBtn);
+
+    header.appendChild(leftDiv);
+    header.appendChild(rightDiv);
+    li.appendChild(header);
+
+    // Notes section (initially hidden)
+    const notesDiv = document.createElement('div');
+    notesDiv.id = 'notes-' + task.id;
+    notesDiv.style.display = 'none';
+    notesDiv.style.paddingTop = '0.5rem';
+    notesDiv.style.whiteSpace = 'pre-wrap';
+    notesDiv.className = 'text-muted';
+    notesDiv.textContent = task.external_data || '(No additional notes)';
+
+    li.appendChild(notesDiv);
+
+    // Toggle notes display on button click with sliding effect
+    toggleNotesBtn.addEventListener('click', () => {
+      const isVisible = notesDiv.style.display === 'block';
+      if (isVisible) {
+        notesDiv.style.height = notesDiv.scrollHeight + 'px'; // start height
+        // animate height to 0
+        setTimeout(() => {
+          notesDiv.style.transition = 'height 300ms ease';
+          notesDiv.style.height = '0px';
+        }, 10);
+        setTimeout(() => {
+          notesDiv.style.display = 'none';
+          notesDiv.style.height = '';
+          notesDiv.style.transition = '';
+        }, 310);
+        toggleNotesBtn.setAttribute('aria-expanded', 'false');
+      } else {
+        notesDiv.style.display = 'block';
+        const height = notesDiv.scrollHeight;
+        notesDiv.style.height = '0px';
+        notesDiv.style.transition = 'height 300ms ease';
+        setTimeout(() => notesDiv.style.height = height + 'px', 10);
+        setTimeout(() => {
+          notesDiv.style.height = '';
+          notesDiv.style.transition = '';
+        }, 310);
+        toggleNotesBtn.setAttribute('aria-expanded', 'true');
+      }
+    });
+
+    return li;
+  }
+
+  // Load tasks and display with note toggle
+  function loadTasks() {
+    fetch('/api/tasks')
+      .then(res => res.json())
+      .then(tasks => {
+        tasksList.innerHTML = '';
+        tasks.forEach(task => {
+          tasksList.appendChild(createTaskItem(task));
+        });
+      })
+      .catch(err => alert('Error loading tasks: ' + err.message));
+  }
+
+  // Add task event handler
+  addTaskForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const deadlineInput = document.getElementById('deadline').value;
+    const externalData = document.getElementById('external_data').value.trim();
+    const taskData = {
+      task_text: document.getElementById('task_text').value,
+      category: document.getElementById('category').value,
+      priority: parseInt(document.getElementById('priority').value),
+      deadline: deadlineInput || null,
+      external_data: externalData,
+      completed: false
+    };
+    fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(taskData)
+    })
+    .then(async res => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to add task');
+      addTaskForm.reset();
+      loadTasks();
+    })
+    .catch(err => alert('Error adding task: ' + err.message));
+  });
+
+  // Update task
+  function updateTask(id, data) {
+    fetch(`/api/tasks/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    .then(async res => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update task');
+      loadTasks();
+    })
+    .catch(err => alert('Error updating task: ' + err.message));
+  }
+
+  // Delete task
+  function deleteTask(id) {
+    if (!confirm('Delete this task?')) return;
+    fetch(`/api/tasks/${id}`, { method: 'DELETE' })
+    .then(async res => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete task');
+      loadTasks();
+    })
+    .catch(err => alert('Error deleting task: ' + err.message));
+  }
+
+  // Edit task
+  function editTask(task) {
+    const newText = prompt('Update task description:', task.task_text);
+    if (newText === null) return;
+    const newCategory = prompt('Update category:', task.category || '');
+    const newPriority = prompt('Update priority (1-5):', task.priority);
+    const newDeadline = prompt('Update deadline (YYYY-MM-DDTHH:mm):', task.deadline || '');
+    const newExternal = prompt('Update optional notes:', task.external_data || '');
+    updateTask(task.id, {
+      task_text: newText,
+      category: newCategory,
+      priority: parseInt(newPriority),
+      deadline: newDeadline,
+      external_data: newExternal
+    });
+  }
+
+  window.onload = loadTasks;
+</script>
+{% endblock %}
