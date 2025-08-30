@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+
+{% block title %}Weather & Habit Activity Suggestions | Dashboard{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <h1 class="mb-4">Weather & Habit Activities</h1>
+
+  <!-- Location Form -->
+  <form id="locationForm" class="mb-4 d-flex flex-wrap gap-2">
+    <input
+      type="text"
+      id="locationInput"
+      class="form-control flex-grow-1"
+      placeholder="Enter location"
+      value="Dhaka"
+      required
+      aria-label="Location"
+    />
+    <button type="submit" class="btn btn-primary">Get Forecast</button>
+  </form>
+
+  <!-- Current Weather Card -->
+  <div id="weatherSection" class="mb-4"></div>
+
+  <!-- Hourly Forecast -->
+  <h4>Hourly Forecast (Next 24 Hours)</h4>
+  <div id="hourlyForecast" class="d-flex overflow-auto gap-3 mb-4"></div>
+
+  <!-- Daily Forecast -->
+  <h4>7-Day Forecast</h4>
+  <div id="forecastSection" class="d-flex overflow-auto gap-3 mb-4"></div>
+
+  <!-- Habit Suggestions -->
+  <div id="habitSuggestionsSection" class="mb-4"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const weatherSection = document.getElementById('weatherSection');
+  const hourlyForecast = document.getElementById('hourlyForecast');
+  const forecastSection = document.getElementById('forecastSection');
+  const habitSuggestionsSection = document.getElementById('habitSuggestionsSection');
+
+  function getIconUrl(iconCode) {
+    return `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
+  }
+
+  function formatDate(timestamp) {
+    return new Date(timestamp * 1000).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  function formatHour(timestamp) {
+    return new Date(timestamp * 1000).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function renderCurrentWeather(weather) {
+    return `
+      <div class="card bg-dark text-light p-4 mb-3 d-flex align-items-center rounded-4" style="min-height: 140px;">
+        <div class="d-flex align-items-center flex-wrap gap-4">
+          <img src="${getIconUrl(weather.weather[0].icon)}" alt="${weather.weather[0].description}" style="width:70px; height:70px;" />
+          <div>
+            <h2 class="display-5 mb-0">${Math.round(weather.main.temp)}°C</h2>
+            <p class="lead mb-1 text-capitalize">${weather.weather[0].description}</p>
+            <p class="mb-0 text-muted">${weather.name}, ${weather.sys.country}</p>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderHourlyCard(hour) {
+    return `
+      <div class="card bg-secondary bg-opacity-10 text-light text-center rounded-3" style="min-width: 80px; padding: 10px;">
+        <div><strong>${formatHour(hour.dt)}</strong></div>
+        <img src="${getIconUrl(hour.weather[0].icon)}" alt="${hour.weather[0].description}" style="width:48px; height:48px;" />
+        <div>${Math.round(hour.temp)}°C</div>
+      </div>
+    `;
+  }
+
+  function renderDailyCard(day) {
+    return `
+      <div class="card bg-secondary bg-opacity-10 text-light text-center rounded-3" style="min-width: 110px; padding: 12px;">
+        <h6>${formatDate(day.dt)}</h6>
+        <img src="${getIconUrl(day.weather[0].icon)}" alt="${day.weather[0].description}" style="width:56px; height:56px;" />
+        <div><strong>${Math.round(day.temp.max)}°</strong> / ${Math.round(day.temp.min)}°</div>
+        <div class="text-capitalize small">${day.weather[0].main}</div>
+      </div>
+    `;
+  }
+
+  function renderHabitSuggestions(suggestions) {
+    if (!suggestions || !suggestions.length) return "";
+    const items = suggestions.map(text => `<li class="list-group-item">${text}</li>`).join('');
+    return `
+      <div class="card bg-light-subtle p-3 rounded-4 shadow-sm" style="max-width: 600px;">
+        <h5 class="mb-2">Habit Suggestions Based on Weather</h5>
+        <ul class="list-group list-group-flush">${items}</ul>
+      </div>
+    `;
+  }
+
+  document.getElementById('locationForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const loc = document.getElementById('locationInput').value.trim();
+
+    weatherSection.innerHTML = '';
+    hourlyForecast.innerHTML = '';
+    forecastSection.innerHTML = '';
+    habitSuggestionsSection.innerHTML = '';
+
+    fetch(`/api/weather-habits?location=${encodeURIComponent(loc)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.error || !data.weather) {
+          weatherSection.innerHTML = `<div class="alert alert-danger">${data.error || "No data returned."}</div>`;
+          return;
+        }
+        // Show current weather
+        weatherSection.innerHTML = renderCurrentWeather(data.weather);
+
+        // Display hourly forecast (next 24 hours)
+        if (data.hourly && Array.isArray(data.hourly)) {
+          hourlyForecast.innerHTML = data.hourly.slice(0, 24).map(renderHourlyCard).join('');
+        }
+
+        // Display 7-day forecast
+        if (data.daily && Array.isArray(data.daily)) {
+          forecastSection.innerHTML = data.daily.slice(0, 7).map(renderDailyCard).join('');
+        }
+
+        // Show habit suggestions
+        habitSuggestionsSection.innerHTML = renderHabitSuggestions(data.habit_suggestions || []);
+      })
+      .catch(() => {
+        weatherSection.innerHTML = `<div class="alert alert-danger">Error fetching weather data</div>`;
+        hourlyForecast.innerHTML = '';
+        forecastSection.innerHTML = '';
+        habitSuggestionsSection.innerHTML = '';
+      });
+  });
+
+  window.onload = () => document.getElementById('locationForm').dispatchEvent(new Event('submit'));
+</script>
+{% endblock %}

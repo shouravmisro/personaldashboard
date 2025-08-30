@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Home | Personal Dashboard{% endblock %}
+
+{% block content %}
+<div class="text-center py-5">
+  <h1 class="display-4 mb-4">Welcome to Your Personal Dashboard</h1>
+  <p class="lead mb-5 text-muted">
+    Manage your <strong>Events</strong>, <strong>Tasks</strong>, <strong>Habits</strong>, and track the <strong>Weather</strong> in one place.
+  </p>
+
+  <div class="row justify-content-center g-4">
+    <a href="/events" class="col-6 col-md-3 btn btn-outline-primary py-4 rounded-4 shadow-sm fw-bold fs-5 d-flex flex-column align-items-center">
+      <i class="bi bi-calendar3 mb-2" style="font-size: 2.5rem;"></i>
+      Events
+    </a>
+
+    <a href="/tasks" class="col-6 col-md-3 btn btn-outline-success py-4 rounded-4 shadow-sm fw-bold fs-5 d-flex flex-column align-items-center">
+      <i class="bi bi-card-checklist mb-2" style="font-size: 2.5rem;"></i>
+      Tasks
+    </a>
+
+    <a href="/habits" class="col-6 col-md-3 btn btn-outline-warning py-4 rounded-4 shadow-sm fw-bold fs-5 d-flex flex-column align-items-center">
+      <i class="bi bi-arrow-repeat mb-2" style="font-size: 2.5rem;"></i>
+      Habits
+    </a>
+
+    <a href="/weather" class="col-6 col-md-3 btn btn-outline-info py-4 rounded-4 shadow-sm fw-bold fs-5 d-flex flex-column align-items-center">
+      <i class="bi bi-cloud-sun mb-2" style="font-size: 2.5rem;"></i>
+      Weather
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Bootstrap Icons CDN for icons -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.js"></script>
+{% endblock %}
