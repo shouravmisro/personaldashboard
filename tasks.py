@@ -1,7 +1,6 @@
 from flask import Blueprint, request, jsonify
 from models import db, ToDoTask
-from datetime import datetime
-from dateutil import parser  # You need to have python-dateutil installed
+from dateutil import parser  # Ensure python-dateutil is installed
 
 tasks_bp = Blueprint('tasks_bp', __name__)
 
@@ -17,7 +16,7 @@ def tasks_collection():
                 'priority': t.priority,
                 'deadline': t.deadline.isoformat() if t.deadline else None,
                 'completed': t.completed,
-                'external_data': t.external_data   # Include field here
+                'external_data': t.external_data  # Include field here
             } for t in tasks
         ])
 

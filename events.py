@@ -1,6 +1,5 @@
 from flask import Blueprint, request, jsonify
 from models import db, Event
-from datetime import datetime
 from dateutil import parser
 
 events_bp = Blueprint('events_bp', __name__)
@@ -14,7 +13,7 @@ def events_collection():
                 'id': e.id,
                 'title': e.title,
                 'description': e.description,
-                'event_date': e.event_date.isoformat(),
+                'event_date': e.event_date.isoformat() if e.event_date else None,
                 'image_url': e.image_url
             } for e in events
         ])
@@ -34,6 +33,7 @@ def events_collection():
         return jsonify({"message": "Event created", "id": event.id}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
 
 @events_bp.route("/events/<int:id>", methods=["PUT", "DELETE"])
 def events_resource(id):
