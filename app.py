@@ -25,13 +25,8 @@ app.register_blueprint(events_bp, url_prefix='/api')
 app.register_blueprint(tasks_bp, url_prefix='/api')
 app.register_blueprint(habits_bp, url_prefix='/api')
 app.register_blueprint(weather_bp, url_prefix='/api')
-import os
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
-
-#gfg
+# Routes for pages
 @app.route("/")
 def home():
     return render_template("home.html")
@@ -52,7 +47,9 @@ def habits():
 def weather():
     return render_template("weather.html")
 
+
 if __name__ == "__main__":
     with app.app_context():
-        db.create_all()  
-    app.run(debug=True)
+        db.create_all()  # Create DB tables if not exist
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
