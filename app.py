@@ -31,7 +31,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
 
-# Serve frontend pages
+#gfg
 @app.route("/")
 def home():
     return render_template("home.html")
@@ -54,5 +54,5 @@ def weather():
 
 if __name__ == "__main__":
     with app.app_context():
-        db.create_all()  # Create tables if they don't exist
+        db.create_all()  
     app.run(debug=True)
