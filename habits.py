@@ -18,7 +18,6 @@ def habits_collection():
             } for h in habits
         ])
 
-    # Add habit (POST)
     data = request.json
     try:
         habit = Habit(
@@ -70,7 +69,6 @@ def habit_progress(id):
         dates = [start_date + timedelta(weeks=i) for i in range(12)]
     elif freq == "monthly":
         start_date = today.replace(day=1)
-        # Generate months carefully considering year rollover
         dates = []
         for i in range(6):
             month = (start_date.month - 1 + i) % 12 + 1
@@ -93,7 +91,6 @@ def habit_progress(id):
             "frequency": habit.frequency
         })
 
-    # POST: Mark completion for a date
     data = request.json
     try:
         date_str = data.get("date")

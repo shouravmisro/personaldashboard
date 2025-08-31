@@ -12,9 +12,8 @@ def suggest_habits_based_on_weather(weather_data):
         return ["No weather data available for suggestions."]
 
     weather_main = weather_data["weather"][0]["main"].lower()
-    temp = weather_data.get("main", {}).get("temp", 20)  # Default 20°C if missing
+    temp = weather_data.get("main", {}).get("temp", 20)   
 
-    # Example rules (expand as needed)
     if weather_main in ["clear", "sunny"]:
         suggestions.append("Great weather for jogging or outdoor exercise!")
         suggestions.append("Perfect day to practice gardening.")

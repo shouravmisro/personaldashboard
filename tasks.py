@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from models import db, ToDoTask
-from dateutil import parser  # Ensure python-dateutil is installed
+from dateutil import parser  
 
 tasks_bp = Blueprint('tasks_bp', __name__)
 
@@ -16,11 +16,10 @@ def tasks_collection():
                 'priority': t.priority,
                 'deadline': t.deadline.isoformat() if t.deadline else None,
                 'completed': t.completed,
-                'external_data': t.external_data  # Include field here
+                'external_data': t.external_data  
             } for t in tasks
         ])
 
-    # POST method: create new task
     data = request.json
     try:
         deadline_str = data.get('deadline')
@@ -31,7 +30,7 @@ def tasks_collection():
             priority=int(data.get('priority', 1)),
             deadline=deadline,
             completed=bool(data.get('completed', False)),
-            external_data=data.get('external_data')  # Support new field
+            external_data=data.get('external_data')  
         )
         db.session.add(task)
         db.session.commit()
@@ -52,7 +51,7 @@ def tasks_resource(id):
             deadline_str = data.get('deadline')
             task.deadline = parser.isoparse(deadline_str) if deadline_str else task.deadline
             task.completed = bool(data.get('completed', task.completed))
-            task.external_data = data.get('external_data', task.external_data)  # Update new field
+            task.external_data = data.get('external_data', task.external_data) 
             db.session.commit()
             return jsonify({"message": "Task updated"})
         except Exception as e:

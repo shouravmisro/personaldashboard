@@ -4,30 +4,24 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from models import db  # Import shared DB instance and models
-
+from models import db  
 app = Flask(__name__)
 
-# Configure your database URI and other options
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///dashboard.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Initialize SQLAlchemy with Flask app
 db.init_app(app)
 
-# Import blueprints after db.init_app(app) to avoid circular imports
 from events import events_bp
 from tasks import tasks_bp
 from habits import habits_bp
 from weather import weather_bp
 
-# Register API blueprints under '/api' prefix
 app.register_blueprint(events_bp, url_prefix='/api')
 app.register_blueprint(tasks_bp, url_prefix='/api')
 app.register_blueprint(habits_bp, url_prefix='/api')
 app.register_blueprint(weather_bp, url_prefix='/api')
 
-# HTML page route handlers
 @app.route("/")
 def home():
     return render_template("home.html")
@@ -50,7 +44,6 @@ def weather():
 
 
 if __name__ == "__main__":
-    # Ensure DB tables are created before handling requests
     with app.app_context():
         db.create_all()
     port = int(os.environ.get("PORT", 5000))

@@ -1,7 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 
-# Single shared SQLAlchemy instance to be initialized in app.py
 db = SQLAlchemy()
 
 class Event(db.Model):
@@ -29,11 +28,10 @@ class Habit(db.Model):
     __tablename__ = 'habit'
     id = db.Column(db.Integer, primary_key=True)
     habit_name = db.Column(db.String(100), nullable=False)
-    frequency = db.Column(db.String(20))  # daily, weekly, monthly
-    goal = db.Column(db.Integer, default=1)  # times per frequency
+    frequency = db.Column(db.String(20))
+    goal = db.Column(db.Integer, default=1) 
     notes = db.Column(db.Text)
 
-    # Relationship to HabitProgress with cascade delete
     daily_progress = db.relationship(
         "HabitProgress",
         cascade="all, delete-orphan",
@@ -56,4 +54,4 @@ class WeatherPreference(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_location = db.Column(db.String(100), unique=True)
     last_updated = db.Column(db.DateTime)
-    weather_data = db.Column(db.Text)  # JSON string cached
+    weather_data = db.Column(db.Text) 
